@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Legal AI — Grounded Legal Intelligence</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+</head>
+<body>
+  <!-- Ambient background glow -->
+  <div class="ambient-glow"></div>
+
+  <div class="app-shell">
+    <!-- Apple-inspired Navigation Bar -->
+    <header class="navbar">
+      <div class="navbar-inner">
+        <div class="brand-group">
+          <div class="brand-mark">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+          </div>
+          <div class="brand-titles">
+            <span class="brand-name">Legal AI</span>
+            <span class="brand-tagline">Grounded Legal Review</span>
+          </div>
+        </div>
+
+        <div class="navbar-center">
+          <div class="engine-indicator" id="engineStatusPill">
+            <span class="pulse-dot"></span>
+            <span class="engine-label" id="providerStatusBadge">Qwen 3.5 2B Active</span>
+          </div>
+        </div>
+
+        <div class="navbar-actions">
+          <span class="meta-pill">PyMuPDF 1.28</span>
+          <span class="meta-pill">FastAPI</span>
+          <a href="/docs" target="_blank" class="nav-link-btn" title="Open API Documentation">API Docs</a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace Layout -->
+    <div class="workspace-grid">
+      <!-- Left Column: Document Ingestion & Controls -->
+      <aside class="control-column">
+        <!-- Ingestion Card -->
+        <section class="apple-card ingestion-card">
+          <div class="segmented-control">
+            <button class="segment-btn active" id="tabUploadBtn" onclick="switchInputMode('upload')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Upload
+            </button>
+            <button class="segment-btn" id="tabSamplesBtn" onclick="switchInputMode('samples')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Samples
+            </button>
+            <button class="segment-btn" id="tabTextBtn" onclick="switchInputMode('text')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+              Raw Text
+            </button>
+          </div>
+
+          <!-- Upload View -->
+          <div id="uploadModeView" class="input-pane">
+            <div class="drop-surface" id="dropZone">
+              <input type="file" id="fileInput" accept=".pdf,.txt,.md" style="display: none;">
+              <div class="drop-icon-wrap">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <p class="drop-heading">Drop contract PDF here</p>
+              <p class="drop-sub">or <button type="button" class="text-trigger" onclick="document.getElementById('fileInput').click()">browse from computer</button></p>
+              <span class="file-spec">PyMuPDF page-anchored extraction</span>
+            </div>
+
+            <div id="selectedFileInfo" class="file-chip hidden">
+              <div class="file-chip-left">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                <span id="selectedFileName">Contract.pdf</span>
+              </div>
+              <button type="button" class="chip-delete" onclick="clearSelectedFile()" aria-label="Remove file">✕</button>
+            </div>
+          </div>
+
+          <!-- Samples View -->
+          <div id="samplesModeView" class="input-pane hidden">
+            <div class="sample-deck" id="sampleContractsList">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Paste Text View -->
+          <div id="textModeView" class="input-pane hidden">
+            <textarea id="contractTextInput" placeholder="Paste full contract text, agreement clauses, or legal terms..." rows="7"></textarea>
+          </div>
+        </section>
+
+        <!-- Configuration Card -->
+        <section class="apple-card config-card">
+          <div class="section-heading-row">
+            <span class="section-title">Review Parameters</span>
+            <span class="privacy-badge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+              Private
+            </span>
+          </div>
+
+          <div class="field-item">
+            <label for="providerSelect" class="field-label">Intelligence Engine</label>
+            <div class="select-wrapper">
+              <select id="providerSelect" class="field-select" onchange="onProviderChange()">
+                <option value="qwen" selected>Qwen 3.5 2B (Local Ollama • 100% Private)</option>
+                <option value="auto">Auto-Detect Engine</option>
+                <option value="gemini">Google Gemini 2.5 Flash</option>
+                <option value="openai">OpenAI GPT-4o Mini</option>
+                <option value="groq">Groq Llama 3.3 70B</option>
+                <option value="mock">Offline Heuristic Engine</option>
+              </select>
+              <svg class="select-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </div>
+
+          <div class="field-item" id="apiKeyGroup" style="display: none;">
+            <label for="apiKeyInput" class="field-label">API Key <span class="field-note">(Optional if in .env)</span></label>
+            <input type="password" id="apiKeyInput" class="field-input" placeholder="sk-...">
+          </div>
+
+          <div class="field-item">
+            <label for="customFocusInput" class="field-label">Audit Focus <span class="field-note">(Optional)</span></label>
+            <input type="text" id="customFocusInput" class="field-input" placeholder="e.g. Scrutinize uncapped liability or IP assignment">
+          </div>
+
+          <button id="runReviewBtn" class="cta-button" onclick="executeReview()">
+            <span class="cta-label">Run Legal Review</span>
+            <span class="cta-loader hidden" id="reviewSpinner"></span>
+          </button>
+        </section>
+
+        <!-- Guarantee Pill / Footer info -->
+        <div class="privacy-notice">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>All findings are cross-checked against verbatim source spans to prevent AI hallucination.</span>
+        </div>
+      </aside>
+
+      <!-- Right Column: Interactive Results Dashboard -->
+      <main class="review-canvas">
+        <!-- Initial Blank Canvas State -->
+        <div id="emptyState" class="canvas-empty-state">
+          <div class="empty-graphic-ring">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <line x1="10" y1="9" x2="8" y2="9"></line>
+            </svg>
+          </div>
+          <h2 class="empty-headline">Grounded Contract Analysis</h2>
+          <p class="empty-description">Select a pre-audited commercial agreement or upload a contract PDF to extract obligations, flag legal exposure, and inspect exact page citations.</p>
+          
+          <div class="starter-deck">
+            <button class="starter-card" onclick="loadSample('sample_saas_vendor_biased.pdf')">
+              <div class="starter-top">
+                <span class="starter-type">SaaS Agreement</span>
+                <span class="starter-badge badge-critical">98/100 Risk</span>
+              </div>
+              <div class="starter-title">CloudScale Vendor-Biased MSA</div>
+              <div class="starter-detail">Uncapped client indemnity, $100 vendor liability, 3-year auto-renew</div>
+            </button>
+
+            <button class="starter-card" onclick="loadSample('sample_consulting_agreement.pdf')">
+              <div class="starter-top">
+                <span class="starter-type">Consulting Agreement</span>
+                <span class="starter-badge badge-high">60/100 Risk</span>
+              </div>
+              <div class="starter-title">Independent Advisory Services</div>
+              <div class="starter-detail">2-year worldwide non-compete, broad IP work-for-hire assignment</div>
+            </button>
+
+            <button class="starter-card" onclick="loadSample('sample_mutual_nda.pdf')">
+              <div class="starter-top">
+                <span class="starter-type">Bilateral NDA</span>
+                <span class="starter-badge badge-low">26/100 Risk</span>
+              </div>
+              <div class="starter-title">Mutual Non-Disclosure Agreement</div>
+              <div class="starter-detail">Standard 5 exclusions, 3-year survival term, reciprocal terms</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Populated Review Dashboard -->
+        <div id="resultsDashboard" class="results-dashboard hidden">
+          <!-- Top KPI Metrics Banner -->
+          <section class="kpi-banner">
+            <!-- Overall Risk Gauge -->
+            <div class="kpi-card risk-kpi" id="riskKpiCard">
+              <span class="kpi-caption">Overall Risk Rating</span>
+              <div class="risk-gauge-row">
+                <span class="risk-numeric" id="riskScoreVal">0</span>
+                <span class="risk-scale">/100</span>
+              </div>
+              <span class="risk-status-pill" id="riskBadgeLevel">LOW RISK</span>
+            </div>
+
+            <!-- Page Count -->
+            <div class="kpi-card">
+              <span class="kpi-caption">Document Volume</span>
+              <div class="kpi-value-row">
+                <span class="kpi-value" id="metricPages">0</span>
+                <span class="kpi-unit">pages</span>
+              </div>
+              <span class="kpi-subtext" id="metricFilename">contract.pdf</span>
+            </div>
+
+            <!-- Red Flags -->
+            <div class="kpi-card">
+              <span class="kpi-caption">Red-Flag Risks</span>
+              <div class="kpi-value-row">
+                <span class="kpi-value text-crimson" id="metricRisks">0</span>
+                <span class="kpi-unit">found</span>
+              </div>
+              <span class="kpi-subtext" id="metricHighRisks">0 Critical / High</span>
+            </div>
+
+            <!-- Missing Standards -->
+            <div class="kpi-card">
+              <span class="kpi-caption">Missing Protections</span>
+              <div class="kpi-value-row">
+                <span class="kpi-value text-amber" id="metricMissing">0</span>
+                <span class="kpi-unit">omissions</span>
+              </div>
+              <span class="kpi-subtext">Commercial Standards</span>
+            </div>
+
+            <!-- Clauses Grounded -->
+            <div class="kpi-card">
+              <span class="kpi-caption">Key Clauses</span>
+              <div class="kpi-value-row">
+                <span class="kpi-value text-cobalt" id="metricClauses">0</span>
+                <span class="kpi-unit">extracted</span>
+              </div>
+              <span class="kpi-subtext">100% Grounded</span>
+            </div>
+          </section>
+
+          <!-- Navigation & Export Bar -->
+          <div class="subnav-row">
+            <div class="subnav-tabs">
+              <button class="subnav-btn active" onclick="switchResultTab('summary')">Executive Summary</button>
+              <button class="subnav-btn" onclick="switchResultTab('risks')">
+                Red-Flag Risks <span class="tab-badge" id="tabRiskCount">0</span>
+              </button>
+              <button class="subnav-btn" onclick="switchResultTab('clauses')">
+                Clause Inventory <span class="tab-badge" id="tabClauseCount">0</span>
+              </button>
+              <button class="subnav-btn" onclick="switchResultTab('missing')">
+                Missing Protections <span class="tab-badge" id="tabMissingCount">0</span>
+              </button>
+            </div>
+
+            <div class="action-btn-group">
+              <button class="ghost-btn" onclick="exportMarkdownReport()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Markdown
+              </button>
+              <button class="ghost-btn" onclick="exportJSONReport()">JSON</button>
+              <button class="ghost-btn" onclick="window.print()">Print</button>
+            </div>
+          </div>
+
+          <!-- TAB 1: Executive Summary -->
+          <div id="tabContentSummary" class="view-panel">
+            <div class="apple-card view-card">
+              <div class="doc-header">
+                <h3 class="doc-title" id="execDocTitle">Master Agreement</h3>
+                <span class="model-meta-tag" id="summaryModelTag">Qwen 3.5 2B Grounded</span>
+              </div>
+              <p class="doc-abstract" id="execHighLevel"></p>
+
+              <div class="meta-bento">
+                <div class="bento-cell">
+                  <span class="bento-label">Parties</span>
+                  <div class="bento-val" id="execParties"></div>
+                </div>
+                <div class="bento-cell">
+                  <span class="bento-label">Effective Date</span>
+                  <div class="bento-val" id="execEffectiveDate"></div>
+                </div>
+                <div class="bento-cell">
+                  <span class="bento-label">Governing Law</span>
+                  <div class="bento-val" id="execGoverningLaw"></div>
+                </div>
+                <div class="bento-cell">
+                  <span class="bento-label">Term & Renewal</span>
+                  <div class="bento-val" id="execTerm"></div>
+                </div>
+                <div class="bento-cell bento-span-2">
+                  <span class="bento-label">Payment & Financial Terms</span>
+                  <div class="bento-val" id="execPayment"></div>
+                </div>
+              </div>
+
+              <div class="takeaways-deck">
+                <h4 class="deck-title">Strategic Takeaways</h4>
+                <ul class="takeaways-list" id="execTakeawaysList"></ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB 2: Risks & Red Flags -->
+          <div id="tabContentRisks" class="view-panel hidden">
+            <div class="filter-strip">
+              <span class="filter-caption">Severity Filter:</span>
+              <button class="filter-chip active" onclick="filterRisks('ALL')">All</button>
+              <button class="filter-chip chip-high" onclick="filterRisks('HIGH')">High Exposure</button>
+              <button class="filter-chip chip-med" onclick="filterRisks('MEDIUM')">Medium Exposure</button>
+              <button class="filter-chip chip-low" onclick="filterRisks('LOW')">Low Exposure</button>
+            </div>
+            <div class="risk-feed" id="riskCardsContainer">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- TAB 3: Clauses & Obligations -->
+          <div id="tabContentClauses" class="view-panel hidden">
+            <div class="filter-strip">
+              <span class="filter-caption">Category:</span>
+              <select id="clauseCategoryFilter" class="category-dropdown" onchange="filterClauses(this.value)">
+                <option value="ALL">All Categories</option>
+              </select>
+            </div>
+            <div class="clauses-grid" id="clausesContainer">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- TAB 4: Missing Clauses Audit -->
+          <div id="tabContentMissing" class="view-panel hidden">
+            <div class="missing-deck" id="missingCardsContainer">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Apple Modal Sheet: Citation & Verbatim Inspector -->
+  <div id="citationModal" class="modal-backdrop hidden" onclick="closeCitationModal(event)">
+    <div class="modal-sheet" onclick="event.stopPropagation()">
+      <div class="sheet-header">
+        <div class="sheet-title-group">
+          <span class="sheet-pretitle">VERBATIM GROUNDED CITATION</span>
+          <h3 class="sheet-title" id="modalTitle">Clause Citation</h3>
+        </div>
+        <button class="sheet-close-btn" onclick="closeCitationModal()" aria-label="Close dialog">✕</button>
+      </div>
+
+      <div class="sheet-body">
+        <div class="citation-pills-row">
+          <span class="sheet-page-pill" id="modalPageBadge">Page 1</span>
+          <span class="sheet-verified-pill">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            PyMuPDF Verified Span
+          </span>
+        </div>
+
+        <div class="verbatim-quote-card">
+          <span class="quote-mark">“</span>
+          <p class="verbatim-text" id="modalPassageText"></p>
+        </div>
+
+        <div class="context-card">
+          <span class="context-label">Legal Assessment & Rationale</span>
+          <p class="context-body" id="modalContextText"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
